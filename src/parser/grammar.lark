@@ -1,0 +1,50 @@
+start: statement_list
+
+// 1. Parsing (statements, pipelines, commands, and arguments)
+// One or more statements, separated by semicolons
+statement_list: statement (";" statement)*  -> statement_list
+
+// A statement is one or more pipelines
+statement: pipeline
+
+// A pipeline is one or more commands joined by '|'
+pipeline: command ("|" command)*           -> pipeline
+
+// A command is one or more arguments
+// (We will parse them all as tokens for now)
+command: arg* redirection*
+
+// An arg can be a substitution (backtick or $()), a quoted string or unquoted text.
+?arg: backtick_substitution
+    | substitution
+    | quoted_double
+    | QUOTED_SINGLE
+    | TEXT
+
+// Redirection rules
+redirection: "<" TEXT         -> input_redirection
+           | ">" TEXT         -> output_redirection
+           | /<[^ \t\n\r\f\v><|&;]+/ -> input_redirection_nospace
+           | />[^ \t\n\r\f\v><|&;]+/ -> output_redirection_nospace
+
+
+// 2. Substitution
+substitution: "$(" statement_list ")"   -> substitution
+backtick_substitution: "`" statement_list "`" -> substitution_backtick
+
+// 3. Quoting
+QUOTED_SINGLE: "'" /[^']*/ "'"
+quoted_double: "\"" quoted_double_content* "\"" -> quoted_double
+
+?quoted_double_content: backtick_substitution
+                      | substitution
+                      | /[^$`"]+/
+
+
+DBLQUOTE: "\""
+BACKQUOTE: "`"
+DBLSTRING_TEXT: /[^$`"]+/
+TEXT: /[^;\|\s"'\x60]+/
+
+%import common.WS
+%ignore WS
